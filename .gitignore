@@ -27,6 +27,13 @@
 *.out
 *.app
 
+# visual studio files
+\debug
+\.vs
+\Release
+\x64
+*.user
+
 # =========================
 # Operating System Files
 # =========================
