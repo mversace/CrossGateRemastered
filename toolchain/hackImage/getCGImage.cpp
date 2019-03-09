@@ -98,7 +98,7 @@ void CGetCGImage::readAndSaveImg(const std::string &strName)
 {
 	// 读取图片
 	FILE *pFile = nullptr;
-	std::string strPath = _strPath + "\\bin\\";
+	std::string strPath = _strPath + "bin\\";
 
 	if (0 != fopen_s(&pFile, (strPath + strName).c_str(), "rb"))
 		return;
@@ -133,22 +133,29 @@ bool CGetCGImage::getImgData(FILE *pFile, const imgInfoHead &imgHead, const std:
 	// 取出对应图片数据头
 	imgData tHead = { 0 };
 	int len = sizeof(imgData);
-
-	// 旧格式的图片头少4个字节
-	if (!isNewFormat(strName))
-		len -= 4;
 	
 	if (len == fread_s(&tHead, len, 1, len, pFile))
 	{
 		// 这种是错误的图
 		if (tHead.width > 5000 || tHead.height > 5000)
 		{
-			std::ostringstream ostr;
-			ostr << "!!!ERROR image data file=" << strName << " id=" << imgHead.id << " imgHead=[" << tHead.width << ","
-				<< tHead.height << "," << tHead.len << "] ii=[" << imgHead.width << "," << imgHead.height << "," << imgHead.len << "]\n";
-			Utils::saveError(strErrorFile, ostr.str());
+			saveLog(LOG_ERROR, strErrorFile, strName, "img w or h error", imgHead, tHead);
 
 			return false;
+		}
+
+
+		_cgpLen = 0; // 调色板长度
+		if (tHead.cVer == 3)
+		{
+			// 多读取4个字节，代表的是调色板的长度
+			if (4 != fread_s(&_cgpLen, 4, 1, 4, pFile))
+			{
+				saveLog(LOG_ERROR, strErrorFile, strName, "read cgpLen error", imgHead, tHead);
+				return false;
+			}
+
+			len += 4;
 		}
 
 		int imgLen = imgHead.len - len;
@@ -160,31 +167,22 @@ bool CGetCGImage::getImgData(FILE *pFile, const imgInfoHead &imgHead, const std:
 				_imgDataIdx = imgLen;
 				memcpy(_imgData, _imgEncode, imgLen);
 			}
-			else if (tHead.cVer == 1)
+			else if (tHead.cVer == 1 || tHead.cVer == 3)
 			{
 				// 压缩的图片
 				_imgDataIdx = decodeImgData(_imgEncode, imgLen);
-				if (_imgDataIdx != tHead.width * tHead.height)
+				if (_imgDataIdx != tHead.width * tHead.height + _cgpLen)
 				{
 					// 这种情况按说是错的
-					if (_imgDataIdx < tHead.width * tHead.height)
+					if (_imgDataIdx < tHead.width * tHead.height + _cgpLen)
 					{
-						std::ostringstream ostr;
-						ostr << "!!!ERROR decodeImgData file=" << strName << " id=" << imgHead.id << " imgHead=[" << tHead.width << ","
-							<< tHead.height << "," << tHead.len << "] ii=[" << imgHead.width << "," << imgHead.height << "," << imgHead.len << "]"
-							<< " encodeLen=" << imgLen << " decodeLen=" << _imgDataIdx << "\n";
-						Utils::saveError(strErrorFile, ostr.str());
-
+						saveLog(LOG_ERROR, strErrorFile, strName, "decode len more", imgHead, tHead);
 						return false;
 					}
 					else
 					{
 						// 大于的话应该算是不够严谨
-						std::ostringstream ostr;
-						ostr << "---INFO decodeImgData file=" << strName << " id=" << imgHead.id << " imgHead=[" << tHead.width << ","
-							<< tHead.height << "," << tHead.len << "] ii=[" << imgHead.width << "," << imgHead.height << "," << imgHead.len << "]"
-							<< " encodeLen=" << imgLen << " decodeLen=" << _imgDataIdx << "\n";
-						Utils::saveError(strErrorFile, ostr.str());
+						saveLog(LOG_INFO, strErrorFile, strName, "decode len less", imgHead, tHead);
 					}
 				}
 			}
@@ -204,9 +202,9 @@ std::string CGetCGImage::filleImgPixel(int w, int h)
 	unsigned char *pCgp = _uMapCgp.begin()->second.data();
 	strCgpName = _uMapCgp.begin()->first;
 	// 使用图片自带调色板
-	if (_imgDataIdx >= w * h + 3 * 256)
+	if (_cgpLen > 0 && (int)_imgDataIdx >= w * h + _cgpLen)
 	{
-		pCgp = _imgData + (_imgDataIdx - 768);
+		pCgp = _imgData + (_imgDataIdx - _cgpLen);
 		strCgpName = "self";
 	}
 
@@ -345,4 +343,17 @@ int CGetCGImage::decodeImgData(unsigned char *p, int len)
 	}
 
 	return idx;
+}
+
+void CGetCGImage::saveLog(int logLevel, const std::string &strErrorFile, const std::string &strName, const std::string &strTag,
+	const imgInfoHead &tIdxHead, const imgData &tImgData)
+{
+	std::ostringstream ostr;
+	ostr << strTag << " file=" << strName
+		<< " id=" << tIdxHead.id << " tileId=" << tIdxHead.tileId
+		<< " ver=" << (int)tImgData.cVer << " w=" << tImgData.width << " h=" << tImgData.height
+		<< " imgHeadLen=" << tImgData.len << " cgpLen=" << _cgpLen
+		<< " decodeLen=" << _imgDataIdx << " expectLen=" << tImgData.width * tImgData.height << "\n";
+
+	Utils::saveError((eLogLevel)logLevel, strErrorFile, ostr.str());
 }

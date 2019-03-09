@@ -35,6 +35,10 @@ private:
 		return true;
 	}
 
+
+	void saveLog(int logLevel, const std::string &strErrorFile, const std::string &strName, const std::string &strTag,
+		const imgInfoHead &tIdxHead, const imgData &tImgData);
+
 private:
 	std::string _strPath;	// 程序路径
 	std::unordered_map<std::string, std::array<unsigned char, DEFAULT_CPG_LEN>> _uMapCgp; // 调色板
@@ -44,6 +48,7 @@ private:
 
 	unsigned char *_imgData = new unsigned char[1024 * 1024 + 256 * 3]; // 记录解密后的图片数据，有的带有调色板，调色板记录在最后
 	unsigned int _imgDataIdx = 0;	// 解密之后的idx
+	unsigned int _cgpLen = 0;		// 图片中调色板长度
 
 	unsigned int *_imgPixel = new unsigned int[1024 * 1024]; // 记录图片数据 最大支持4M的图片 如果有图片过大，修改这里
 };

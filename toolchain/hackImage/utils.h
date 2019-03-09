@@ -11,6 +11,16 @@
 #define SAFE_DELETE(p) { if (p) {delete p; p = nullptr; }}
 #define SAFE_DELETE_A(p) { if (p) {delete[] p; p = nullptr; }}
 
+// 只是简单日志，就放在这里吧
+enum eLogLevel
+{
+	LOG_NORMAL = 0,
+	LOG_INFO,
+	LOG_ERROR
+};
+
+__declspec(selectany) eLogLevel g_logLevel = LOG_ERROR;
+
 namespace Utils
 {
 	// 去掉之后的'\\'
@@ -43,13 +53,26 @@ namespace Utils
 	}
 
 	// 保存错误信息
-	inline void saveError(const std::string &strFile, const std::string &err)
+	inline void saveError(eLogLevel logLevel, const std::string &strFile, const std::string &err)
 	{
+		if (logLevel < g_logLevel)
+			return;
+
+		std::string str;
+		switch (logLevel)
+		{
+		case LOG_NORMAL: str = "@@@normal " + err; break;
+		case LOG_INFO: str = "---info " + err; break;
+		case LOG_ERROR: str = "!!!ERROR " + err; break;
+		default:
+			break;
+		}
+
 		FILE *pFile = nullptr;
 		if (0 != fopen_s(&pFile, strFile.c_str(), "a"))
 			return;
 
-		fwrite(err.c_str(), 1, err.length(), pFile);
+		fwrite(str.c_str(), 1, err.length(), pFile);
 		fclose(pFile);
 	}
 

@@ -30,7 +30,6 @@ struct imgData
 	unsigned int width;
 	unsigned int height;
 	unsigned int len;	// 包含自身头的总长度，后续跟char数组
-	unsigned int cgpLen; // 调色板长度
 }; // + char* len = size - 16
 
 #pragma pack()
@@ -78,10 +77,13 @@ __declspec(selectany) unsigned char g_c240_245[] = {
 };
 
 // 图片索引与图片库的对照表
+// 已经包含所有图片库
+// Anime开头的相当于是指定以下库的动作，相当于是配置文件，这个就不解析了，必要性不大
 __declspec(selectany) std::unordered_map<std::string, std::string> g_ImgMap = {
- 	{ "GraphicInfo_20.bin", "Graphic_20.bin" },			// 命运的开启者
-// 	{ "GraphicInfo_Joy_22.bin", "Graphic_Joy_22.bin" },	// 乐园之卵 [TODO]
-// 	{ "GraphicInfoEx_4.bin", "GraphicEx_4.bin" },		// 龙之沙时计
-// 	{ "GraphicInfoV3_18.bin", "GraphicV3_18.bin" }, // 乐园之卵（精灵） [TODO]
-//	{"GraphicInfo_PUK2_2.bin", "Graphic_PUK2_2.bin"},
+	{ "GraphicInfo_20.bin", "Graphic_20.bin" },			// 命运的开启者
+	{ "GraphicInfo_Joy_22.bin", "Graphic_Joy_22.bin" },	// 乐园之卵
+	{ "GraphicInfoEx_4.bin", "GraphicEx_4.bin" },		// 龙之沙时计
+	{ "GraphicInfoV3_18.bin", "GraphicV3_18.bin" }, // 乐园之卵（精灵
+	{ "Puk3\\GraphicInfo_PUK2_2.bin", "Puk3\\Graphic_PUK2_2.bin"},
+	{ "Puk3\\GraphicInfo_PUK3_1.bin", "Puk3\\Graphic_PUK3_1.bin" },
 };
