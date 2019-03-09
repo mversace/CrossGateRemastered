@@ -49,12 +49,12 @@ public:
 		std::wstring wstrExt = Utils::StrToWStr(strExt);
 
 		Gdiplus::Bitmap bmp(w, h, PixelFormat32bppARGB);
+		int idx = 0;
 		for (int row = 0; row < h; ++row)
 		{
 			for (int col = 0; col < w; ++col)
 			{
-				int idx = row* w + col;
-				bmp.SetPixel(col, row, p[idx]);
+				bmp.SetPixel(col, row, p[idx++]);
 			}
 		}
 

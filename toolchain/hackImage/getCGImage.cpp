@@ -16,7 +16,9 @@ CGetCGImage::CGetCGImage()
 
 CGetCGImage::~CGetCGImage()
 {
-
+	SAFE_DELETE_A(_imgEncode);
+	SAFE_DELETE_A(_imgData);
+	SAFE_DELETE_A(_imgPixel);
 }
 
 void CGetCGImage::doRun()
@@ -39,6 +41,7 @@ void CGetCGImage::clearData()
 void CGetCGImage::readCgp()
 {
 	// 遍历pal目录下的所有文件
+	// 该目录下的调色板实际上只存有236个颜色，对应到图片为16-252
 	FILE *pFile = nullptr;
 	intptr_t hFile = 0;
 	struct _finddata_t fileinfo;
@@ -53,17 +56,20 @@ void CGetCGImage::readCgp()
 			std::string name = fileinfo.name;
 			if (0 == fopen_s(&pFile, (strPath + name).c_str(), "rb"))
 			{
-				cgpData tData = { 0 };
-				int len = sizeof(cgpData);
-				while (len == fread_s(&tData, len, 1, len, pFile))
+				// 直接把调色板读写到数组中
+				std::array<unsigned char, DEFAULT_CPG_LEN> c;
+				unsigned char *p = c.data();
+				if (708 == fread_s(p + 16 * 3, 708, 1, 708, pFile))
 				{
-					// int格式为ARGB，因为是小端模式，所以存储的字节为BGRA
-					unsigned int color = (tData.r << 16) + (tData.g << 8) + tData.b;
-					if (tData.b != 0 || tData.g != 0 || tData.r != 0)
-						color |= 0xff000000;
-					_uMapCgp[name].push_back(color);
+					// 将默认的调色板写入 前16后16
+					memcpy(p, g_c0_15, 16 * 3);
+					memcpy(p + 240 * 3, g_c240_245, 16 * 3);
+					_uMapCgp[name] = c;
 				}
-				
+				else
+				{
+					// 调色板错误
+				}
 			}
 
 			if (pFile) fclose(pFile);
@@ -97,118 +103,135 @@ void CGetCGImage::readAndSaveImg(const std::string &strName)
 	if (0 != fopen_s(&pFile, (strPath + strName).c_str(), "rb"))
 		return;
 
+	// 记录错误日志
 	std::string strErrorFile = _strPath + "\\data\\";
 	Utils::makeSureDirExsits(strErrorFile);
 	strErrorFile += "error.log";
 
-	// 基础目录，每个文件对应所有调色板生成一个文件夹
-	std::string strSavePath = _strPath + "\\data\\" + strName.substr(0, strName.find_last_of("."))
-		+ "\\"; // + cgp.first.substr(0, cgp.first.find_last_of(".")) + "\\";
-
-	// 如果有自己的调色板，则使用，否则使用第一个调色板
-	std::string cgpName;
-	std::vector<int>* pCgpData = nullptr;
-	if (_uMapCgp.find(strName) != _uMapCgp.end())
-	{
-		cgpName = strName;
-		pCgpData = &_uMapCgp[strName];
-	}
-	else
-	{
-		cgpName = _uMapCgp.begin()->first;
-		pCgpData = &_uMapCgp.begin()->second;
-	}
-
-	cgpName = cgpName.substr(0, cgpName.find_last_of("."));
+	// 生成的文件目录
+	std::string strSavePath = _strPath + "\\data\\" + strName.substr(0, strName.find_last_of(".")) + "\\";
 
 	for (auto &ii : _vecImginfo)
 	{
-		// 取出对应图片
-		imgData tHead = { 0 };
-		int len = sizeof(imgData);
-
-		// 旧格式的图片头少4个字节
-		if (!isNewFormat(strName))
-			len -= 4;
-
-		fseek(pFile, ii.addr, SEEK_SET);
-		if (len == fread_s(&tHead, len, 1, len, pFile))
+		if (getImgData(pFile, ii, strName, strErrorFile))
 		{
-			bool bEncoded = true;
-			// tHead.len != ii.len这个实际上是未压缩的图
-			if (tHead.len != ii.len) 
-			{
-				bEncoded = false;
-				tHead.len = ii.len;
-			}
-
-			// 这种是错误的图
-			if (tHead.width > 5000 || tHead.height > 5000)
-			{
-				tHead.len = ii.len;
-
-				std::ostringstream ostr;
-				ostr << "image data Error file=" << strName << " id=" << ii.id << " thead=[" << tHead.width << ","
-					<< tHead.height << "," << tHead.len << "] ii=[" << ii.width << "," << ii.height << "," << ii.len << "]\n";
-				Utils::saveError(strErrorFile, ostr.str());
-
-				continue;
-			}
-
-			int realLen = tHead.width * tHead.height;
-			// 有图库中数据有些许错误，居然会多出几个字节，做个容错
-			std::vector<unsigned char> vData(realLen + 10, 0);
-			int imgLen = tHead.len - len;
-			unsigned char* p = new unsigned char[imgLen];
-			if (imgLen == fread_s(p, imgLen, 1, imgLen, pFile))
-			{
-				if (bEncoded)
-				{
-					decodeImgData(p, imgLen, tHead.cgpLen, vData, realLen);
-					vData.erase(vData.end() - 10, vData.end());
-				}
-				else
-				{
-					// 未压缩的图库
-					vData.assign(p, p + imgLen);
-					// 居然是横向翻折。。。
-					// 调色板也不对，以后再说吧
-					for (unsigned int i = 0; i < tHead.height; ++i)
-					{
-						auto iBegin = vData.begin() + i * tHead.width;
-						reverse(iBegin, iBegin + tHead.width);
-					}
-				}
-
-				saveImgData(cgpName, pCgpData, strSavePath, ii, vData);
-			}
-			SAFE_DELETE_A(p);
+			std::string strCgp = filleImgPixel(ii.width, ii.height);
+			saveImgData(strCgp, strSavePath, ii);
 		}
 	}
 
 	if (pFile) fclose(pFile);
 }
 
-void CGetCGImage::saveImgData(const std::string &cgpName, std::vector<int>* pCgpData, const std::string &strPath, const imgInfoHead &tHead, const std::vector<unsigned char> &vPixes)
+bool CGetCGImage::getImgData(FILE *pFile, const imgInfoHead &imgHead, const std::string &strName, const std::string &strErrorFile)
+{
+	if (!pFile) return false;
+
+	// 定位到图片位置
+	fseek(pFile, imgHead.addr, SEEK_SET);
+
+	// 取出对应图片数据头
+	imgData tHead = { 0 };
+	int len = sizeof(imgData);
+
+	// 旧格式的图片头少4个字节
+	if (!isNewFormat(strName))
+		len -= 4;
+	
+	if (len == fread_s(&tHead, len, 1, len, pFile))
+	{
+		// 这种是错误的图
+		if (tHead.width > 5000 || tHead.height > 5000)
+		{
+			std::ostringstream ostr;
+			ostr << "!!!ERROR image data file=" << strName << " id=" << imgHead.id << " imgHead=[" << tHead.width << ","
+				<< tHead.height << "," << tHead.len << "] ii=[" << imgHead.width << "," << imgHead.height << "," << imgHead.len << "]\n";
+			Utils::saveError(strErrorFile, ostr.str());
+
+			return false;
+		}
+
+		int imgLen = imgHead.len - len;
+		if (imgLen == fread_s(_imgEncode, imgLen, 1, imgLen, pFile))
+		{
+			if (tHead.cVer == 0)
+			{
+				// 未压缩图片 
+				_imgDataIdx = imgLen;
+				memcpy(_imgData, _imgEncode, imgLen);
+			}
+			else if (tHead.cVer == 1)
+			{
+				// 压缩的图片
+				_imgDataIdx = decodeImgData(_imgEncode, imgLen);
+				if (_imgDataIdx != tHead.width * tHead.height)
+				{
+					// 这种情况按说是错的
+					if (_imgDataIdx < tHead.width * tHead.height)
+					{
+						std::ostringstream ostr;
+						ostr << "!!!ERROR decodeImgData file=" << strName << " id=" << imgHead.id << " imgHead=[" << tHead.width << ","
+							<< tHead.height << "," << tHead.len << "] ii=[" << imgHead.width << "," << imgHead.height << "," << imgHead.len << "]"
+							<< " encodeLen=" << imgLen << " decodeLen=" << _imgDataIdx << "\n";
+						Utils::saveError(strErrorFile, ostr.str());
+
+						return false;
+					}
+					else
+					{
+						// 大于的话应该算是不够严谨
+						std::ostringstream ostr;
+						ostr << "---INFO decodeImgData file=" << strName << " id=" << imgHead.id << " imgHead=[" << tHead.width << ","
+							<< tHead.height << "," << tHead.len << "] ii=[" << imgHead.width << "," << imgHead.height << "," << imgHead.len << "]"
+							<< " encodeLen=" << imgLen << " decodeLen=" << _imgDataIdx << "\n";
+						Utils::saveError(strErrorFile, ostr.str());
+					}
+				}
+			}
+		}
+	}
+
+	return true;
+}
+
+std::string CGetCGImage::filleImgPixel(int w, int h)
+{
+	std::string strCgpName;
+
+	memset(_imgPixel, 0, sizeof(_imgPixel) * sizeof(unsigned int));
+
+	// 默认使用palet_08.cgp(白天) 调色版
+	unsigned char *pCgp = _uMapCgp.begin()->second.data();
+	strCgpName = _uMapCgp.begin()->first;
+	// 使用图片自带调色板
+	if (_imgDataIdx >= w * h + 3 * 256)
+	{
+		pCgp = _imgData + (_imgDataIdx - 768);
+		strCgpName = "self";
+	}
+
+	// 图片数据，竖向方向是反的，从最后一行开始
+	int imgLen = w * h;
+	for (int i = 0; i < imgLen; ++i)
+	{
+		// 调色板编号
+		int cIdx = _imgData[i] * 3;
+		int idx = (h - i / w - 1) * w + i % w;
+
+		_imgPixel[idx] = (pCgp[cIdx]) + (pCgp[cIdx + 1] << 8) + (pCgp[cIdx + 2] << 16);
+		if (pCgp[cIdx] != 0 || pCgp[cIdx + 1] != 0 || pCgp[cIdx + 2] != 0)
+			_imgPixel[idx] |= 0xff000000;
+	}
+
+	return std::move(strCgpName);
+}
+
+void CGetCGImage::saveImgData(const std::string &cgpName, const std::string &strPath, const imgInfoHead &tHead)
 {
 	// 存储_vecImgData
 	// data/name/cgp/*.png
 
 	FILE *pFile = nullptr;
-
-	// 根据调色板生成每个像素用unsigned int保存
-	int len = tHead.width * tHead.height;
-	unsigned int* p = new unsigned int[len];
-	memset(p, 0, len * 4);
-
-	unsigned int* pTemp = p + len - 1;
-	for (auto pixel : vPixes)
-	{
-		if (pixel >= 16 && pixel <= 240)
-			*pTemp = (*pCgpData)[pixel - 16];
-
-		--pTemp;
-	}
 
 	// 生成不同的目录，地图文件额外一个目录
 	int rangeBegin = tHead.id / 20000;
@@ -222,21 +245,17 @@ void CGetCGImage::saveImgData(const std::string &cgpName, std::vector<int>* pCgp
 
 	Utils::makeSureDirExsits(Utils::extractFileDir(strSaveName));
 
-	CGdiSaveImg::getInstance()->saveImage(p, tHead.width, tHead.height, strSaveName, "png");
+	CGdiSaveImg::getInstance()->saveImage(_imgPixel, tHead.width, tHead.height, strSaveName, "png");
 
 	std::cout << "createImg: id = " << tHead.id << " name = " << strSaveName << std::endl;
-
-	SAFE_DELETE_A(p);
 }
 
-int CGetCGImage::decodeImgData(unsigned char *p, int len, int cgpLen, std::vector<unsigned char>& v, int realLen)
+int CGetCGImage::decodeImgData(unsigned char *p, int len)
 {
 	// 图片解密 Run-Length压缩
 	int iPos = 0;
-	int vi = 0;
-	std::vector<unsigned char> vvv(p, p + len);
-	int imgLen = len - cgpLen;
-	while (iPos < imgLen && vi < realLen)
+	int idx = 0;
+	while (iPos < len)
 	{
 		switch (p[iPos] & 0xF0)
 		{
@@ -246,7 +265,7 @@ int CGetCGImage::decodeImgData(unsigned char *p, int len, int cgpLen, std::vecto
 			int count = p[iPos] & 0x0F;
 			++iPos;
 			for (int i = 0; i < count; ++i)
-				v[vi++] = p[iPos++];
+				_imgData[idx++] = p[iPos++];
 		}
 		break;
 		case 0x10:
@@ -255,7 +274,7 @@ int CGetCGImage::decodeImgData(unsigned char *p, int len, int cgpLen, std::vecto
 			int count = (p[iPos] & 0x0F) * 0x100 + p[iPos + 1];
 			iPos += 2;
 			for (int i = 0; i < count; ++i)
-				v[vi++] = p[iPos++];
+				_imgData[idx++] = p[iPos++];
 		}
 		break;
 		case 0x20:
@@ -264,7 +283,7 @@ int CGetCGImage::decodeImgData(unsigned char *p, int len, int cgpLen, std::vecto
 			int count = (p[iPos] & 0x0F) * 0x10000 + p[iPos + 1] * 0x100 + p[iPos + 2];
 			iPos += 3;
 			for (int i = 0; i < count; ++i)
-				v[vi++] = p[iPos++];
+				_imgData[idx++] = p[iPos++];
 		}
 		break;
 		case 0x80:
@@ -272,7 +291,7 @@ int CGetCGImage::decodeImgData(unsigned char *p, int len, int cgpLen, std::vecto
 			// 0x8n 第二个字节X，代表连续n个X
 			int count = p[iPos] & 0x0F;
 			for (int i = 0; i < count; ++i)
-				v[vi++] = p[iPos + 1];
+				_imgData[idx++] = p[iPos + 1];
 			iPos += 2;
 		}
 		break;
@@ -281,7 +300,7 @@ int CGetCGImage::decodeImgData(unsigned char *p, int len, int cgpLen, std::vecto
 			// 0x9n 第二个字节X，第三个字节m，代表连续n*0x100+m个X
 			int count = (p[iPos] & 0x0F) * 0x100 + p[iPos + 2];
 			for (int i = 0; i < count; ++i)
-				v[vi++] = p[iPos + 1];
+				_imgData[idx++] = p[iPos + 1];
 			iPos += 3;
 		}
 		break;
@@ -290,7 +309,7 @@ int CGetCGImage::decodeImgData(unsigned char *p, int len, int cgpLen, std::vecto
 			// 0xan 第二个字节X，第三个字节m，第四个字节z，代表连续n*0x10000+m*0x100+z个X
 			int count = (p[iPos] & 0x0F) * 0x10000 + p[iPos + 2] * 0x100 + p[iPos + 3];
 			for (int i = 0; i < count; ++i)
-				v[vi++] = p[iPos + 1];
+				_imgData[idx++] = p[iPos + 1];
 			iPos += 4;
 		}
 		break;
@@ -299,7 +318,7 @@ int CGetCGImage::decodeImgData(unsigned char *p, int len, int cgpLen, std::vecto
 			// 0xcn 同0x8n，只不过填充的是背景色
 			int count = p[iPos] & 0x0F;
 			for (int i = 0; i < count; ++i)
-				v[vi++] = 0;
+				_imgData[idx++] = 0;
 			iPos += 1;
 		}
 		break;
@@ -308,7 +327,7 @@ int CGetCGImage::decodeImgData(unsigned char *p, int len, int cgpLen, std::vecto
 			// 0xdn 同0x9n，只不过填充的是背景色
 			int count = (p[iPos] & 0x0F) * 0x100 + p[iPos + 1];
 			for (int i = 0; i < count; ++i)
-				v[vi++] = 0;
+				_imgData[idx++] = 0;
 			iPos += 2;
 		}
 		break;
@@ -316,7 +335,7 @@ int CGetCGImage::decodeImgData(unsigned char *p, int len, int cgpLen, std::vecto
 		{
 			int count = (p[iPos] & 0x0F) * 0x10000 + p[iPos + 1] * 0x100 + p[iPos + 2];
 			for (int i = 0; i < count; ++i)
-				v[vi++] = 0;
+				_imgData[idx++] = 0;
 			iPos += 3;
 		}
 		break;
@@ -325,5 +344,5 @@ int CGetCGImage::decodeImgData(unsigned char *p, int len, int cgpLen, std::vecto
 		}
 	}
 
-	return vi;
+	return idx;
 }

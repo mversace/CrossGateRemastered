@@ -3,6 +3,7 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <array>
 #include "define.h"
 
 class CGetCGImage
@@ -21,9 +22,11 @@ private:
 	void readAndSaveImg(const std::string &strName);
 
 private:
-	int decodeImgData(unsigned char *p, int len, int cgpLen, std::vector<unsigned char>& v, int realLen);
-	void saveImgData(const std::string &cgpName, std::vector<int>* pCgpData, const std::string &strPath, const imgInfoHead &tHead, const std::vector<unsigned char> &vPixes);
+	bool getImgData(FILE *pFile, const imgInfoHead &imgHead, const std::string &strName, const std::string &strErrorFile);
+	std::string filleImgPixel(int w, int h);
+	void saveImgData(const std::string &cgpName, const std::string &strPath, const imgInfoHead &tHead);
 
+	int decodeImgData(unsigned char *p, int len);
 	bool isNewFormat(const std::string &strName)
 	{
 		if (strName == "Graphic_20.bin" || strName == "GraphicEx_4.bin")
@@ -34,6 +37,13 @@ private:
 
 private:
 	std::string _strPath;	// 程序路径
-	std::unordered_map<std::string, std::vector<int>> _uMapCgp; // 调色板
+	std::unordered_map<std::string, std::array<unsigned char, DEFAULT_CPG_LEN>> _uMapCgp; // 调色板
 	std::vector<imgInfoHead> _vecImginfo; // 图片索引
+
+	unsigned char *_imgEncode = new unsigned char[1024 * 1024 + 256 * 3]; // 记录加密后的图片信息
+
+	unsigned char *_imgData = new unsigned char[1024 * 1024 + 256 * 3]; // 记录解密后的图片数据，有的带有调色板，调色板记录在最后
+	unsigned int _imgDataIdx = 0;	// 解密之后的idx
+
+	unsigned int *_imgPixel = new unsigned int[1024 * 1024]; // 记录图片数据 最大支持4M的图片 如果有图片过大，修改这里
 };
