@@ -84,6 +84,6 @@ __declspec(selectany) std::unordered_map<std::string, std::string> g_ImgMap = {
 	{ "GraphicInfo_Joy_22.bin", "Graphic_Joy_22.bin" },	// 乐园之卵
 	{ "GraphicInfoEx_4.bin", "GraphicEx_4.bin" },		// 龙之沙时计
 	{ "GraphicInfoV3_18.bin", "GraphicV3_18.bin" }, // 乐园之卵（精灵
-	{ "Puk3\\GraphicInfo_PUK2_2.bin", "Puk3\\Graphic_PUK2_2.bin"},
+	{ "Puk2\\GraphicInfo_PUK2_2.bin", "Puk2\\Graphic_PUK2_2.bin"},
 	{ "Puk3\\GraphicInfo_PUK3_1.bin", "Puk3\\Graphic_PUK3_1.bin" },
 };

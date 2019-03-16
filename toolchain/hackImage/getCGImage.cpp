@@ -2,16 +2,14 @@
 #include <windows.h>
 #include <io.h>
 #include <sstream>
+#include <fstream>
 #include "getCGImage.h"
 #include "gdiImg.h"
 
 CGetCGImage::CGetCGImage()
 {
 	// 获取程序路径
-	char szFullPath[MAX_PATH] = { 0 };
-	::GetModuleFileNameA(nullptr, szFullPath, MAX_PATH);
-	_strPath = szFullPath;
-	_strPath.erase(_strPath.begin() + _strPath.find_last_of("\\") + 1, _strPath.end());
+	_strPath = Utils::getExePath();
 }
 
 CGetCGImage::~CGetCGImage()
@@ -30,6 +28,7 @@ void CGetCGImage::doRun()
 		readAndSaveImg(item.second);
 		_vecImginfo.clear();
 	}
+	saveFileJson();
 }
 
 void CGetCGImage::clearData()
@@ -87,7 +86,23 @@ void CGetCGImage::readInfo(const std::string &strInfo)
 		imgInfoHead tHead = { 0 };
 		int len = sizeof(imgInfoHead);
 		while (len == fread_s(&tHead, len, 1, len, pFile))
+		{
 			_vecImginfo.push_back(tHead);
+
+			if (tHead.tileId != 0)
+			{
+				_tiledFilesJson[std::to_string(tHead.tileId)] = {
+					{"id", tHead.id},
+					{"width", tHead.width},
+					{"height", tHead.height},
+					{"xOffset", tHead.xOffset},
+					{"yOffset", tHead.yOffset},
+					{"tileEast", tHead.tileEast},
+					{"tileSouth", tHead.tileSouth},
+					{"flag", tHead.flag}
+				};
+			}
+		}
 	}
 	if (pFile) fclose(pFile);
 
@@ -98,7 +113,7 @@ void CGetCGImage::readAndSaveImg(const std::string &strName)
 {
 	// 读取图片
 	FILE *pFile = nullptr;
-	std::string strPath = _strPath + "bin\\";
+	std::string strPath = _strPath + "\\bin\\";
 
 	if (0 != fopen_s(&pFile, (strPath + strName).c_str(), "rb"))
 		return;
@@ -243,9 +258,21 @@ void CGetCGImage::saveImgData(const std::string &cgpName, const std::string &str
 
 	Utils::makeSureDirExsits(Utils::extractFileDir(strSaveName));
 
+	_tiledFilesJson[std::to_string(tHead.tileId)]["fullName"] = strSaveName + ".png";
+
 	CGdiSaveImg::getInstance()->saveImage(_imgPixel, tHead.width, tHead.height, strSaveName, "png");
 
 	std::cout << "createImg: id = " << tHead.id << " name = " << strSaveName << std::endl;
+}
+
+void CGetCGImage::saveFileJson()
+{
+	std::ofstream ofs((_strPath + "\\data\\fileInfo.json").c_str(), std::ios::out | std::ios::trunc);
+	if (ofs.bad())
+		return;
+
+	ofs << _tiledFilesJson.dump(4);
+	ofs.close();
 }
 
 int CGetCGImage::decodeImgData(unsigned char *p, int len)
@@ -353,7 +380,7 @@ void CGetCGImage::saveLog(int logLevel, const std::string &strErrorFile, const s
 		<< " id=" << tIdxHead.id << " tileId=" << tIdxHead.tileId
 		<< " ver=" << (int)tImgData.cVer << " w=" << tImgData.width << " h=" << tImgData.height
 		<< " imgHeadLen=" << tImgData.len << " cgpLen=" << _cgpLen
-		<< " decodeLen=" << _imgDataIdx << " expectLen=" << tImgData.width * tImgData.height << "\n";
+		<< " decodeLen=" << _imgDataIdx << " expectLen=" << tImgData.width * tImgData.height;
 
 	Utils::saveError((eLogLevel)logLevel, strErrorFile, ostr.str());
 }

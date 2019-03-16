@@ -52,6 +52,41 @@ namespace Utils
 		::CreateDirectoryA(strDir.c_str(), nullptr);
 	}
 
+	inline std::string getExePath()
+	{
+		// 获取程序路径
+		char szFullPath[MAX_PATH] = { 0 };
+		::GetModuleFileNameA(nullptr, szFullPath, MAX_PATH);
+		std::string str = szFullPath;
+		return Utils::extractFileDir(str);
+	}
+
+	// 带后缀名
+	inline std::string getFileName(const std::string &strName)
+	{
+		std::string strOut = strName;
+		auto i = strName.find_last_of('\\');
+		if (i != std::string::npos)
+			strOut = strOut.substr(i + 1);
+		
+		return std::move(strOut);
+	}
+
+	// 无后缀名
+	inline std::string getFileNameNoExt(const std::string &strName)
+	{
+		std::string strOut = strName;
+		auto i = strName.find_last_of('\\');
+		if (i != std::string::npos)
+			strOut = strOut.substr(i + 1);
+
+		auto j = strName.find_last_of('.');
+		if (j != std::string::npos)
+			strOut = strOut.substr(0, j);
+
+		return std::move(strOut);
+	}
+
 	// 保存错误信息
 	inline void saveError(eLogLevel logLevel, const std::string &strFile, const std::string &err)
 	{
@@ -72,7 +107,8 @@ namespace Utils
 		if (0 != fopen_s(&pFile, strFile.c_str(), "a"))
 			return;
 
-		fwrite(str.c_str(), 1, err.length(), pFile);
+		str += "\n";
+		fwrite(str.c_str(), 1, str.length(), pFile);
 		fclose(pFile);
 	}
 

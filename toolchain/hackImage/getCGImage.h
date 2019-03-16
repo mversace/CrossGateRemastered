@@ -5,6 +5,7 @@
 #include <vector>
 #include <array>
 #include "define.h"
+#include "nlohmann/json.hpp"
 
 class CGetCGImage
 {
@@ -20,6 +21,7 @@ private:
 	void readCgp();
 	void readInfo(const std::string &strInfo);
 	void readAndSaveImg(const std::string &strName);
+	void saveFileJson();
 
 private:
 	bool getImgData(FILE *pFile, const imgInfoHead &imgHead, const std::string &strName, const std::string &strErrorFile);
@@ -51,4 +53,6 @@ private:
 	unsigned int _cgpLen = 0;		// 图片中调色板长度
 
 	unsigned int *_imgPixel = new unsigned int[1024 * 1024]; // 记录图片数据 最大支持4M的图片 如果有图片过大，修改这里
+
+	nlohmann::json _tiledFilesJson; // 存储图片的所有信息
 };
