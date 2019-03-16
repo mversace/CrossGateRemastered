@@ -1,11 +1,25 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
-VisualStudioVersion = 15.0.28307.421
+VisualStudioVersion = 15.0.27130.2020
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "toolchain", "toolchain", "{9314EB89-0376-4521-A409-92B203AE4CB4}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hackImage", "toolchain\hackImage\hackImage.vcxproj", "{EFB4CE78-B57F-4469-9359-059FBA3AAA83}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hackMap", "toolchain\hackMap\hackMap.vcxproj", "{801AAE74-5671-4D71-BE84-084BC6CD15FC}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "thirdParty", "thirdParty", "{E3DEACF5-8E28-4E61-9BE5-35F58BB8B6A7}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "nlohmann", "nlohmann", "{BFF8614D-0E21-44E8-8729-FD18B68B58D6}"
+	ProjectSection(SolutionItems) = preProject
+		toolchain\thirdParty\nlohmann\json.hpp = toolchain\thirdParty\nlohmann\json.hpp
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "common", "common", "{B295DFFD-2456-4E88-9A04-931699A89C76}"
+	ProjectSection(SolutionItems) = preProject
+		toolchain\common\utils.h = toolchain\common\utils.h
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -23,12 +37,24 @@ Global
 		{EFB4CE78-B57F-4469-9359-059FBA3AAA83}.Release|x64.Build.0 = Release|x64
 		{EFB4CE78-B57F-4469-9359-059FBA3AAA83}.Release|x86.ActiveCfg = Release|Win32
 		{EFB4CE78-B57F-4469-9359-059FBA3AAA83}.Release|x86.Build.0 = Release|Win32
+		{801AAE74-5671-4D71-BE84-084BC6CD15FC}.Debug|x64.ActiveCfg = Debug|x64
+		{801AAE74-5671-4D71-BE84-084BC6CD15FC}.Debug|x64.Build.0 = Debug|x64
+		{801AAE74-5671-4D71-BE84-084BC6CD15FC}.Debug|x86.ActiveCfg = Debug|Win32
+		{801AAE74-5671-4D71-BE84-084BC6CD15FC}.Debug|x86.Build.0 = Debug|Win32
+		{801AAE74-5671-4D71-BE84-084BC6CD15FC}.Release|x64.ActiveCfg = Release|x64
+		{801AAE74-5671-4D71-BE84-084BC6CD15FC}.Release|x64.Build.0 = Release|x64
+		{801AAE74-5671-4D71-BE84-084BC6CD15FC}.Release|x86.ActiveCfg = Release|Win32
+		{801AAE74-5671-4D71-BE84-084BC6CD15FC}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{EFB4CE78-B57F-4469-9359-059FBA3AAA83} = {9314EB89-0376-4521-A409-92B203AE4CB4}
+		{801AAE74-5671-4D71-BE84-084BC6CD15FC} = {9314EB89-0376-4521-A409-92B203AE4CB4}
+		{E3DEACF5-8E28-4E61-9BE5-35F58BB8B6A7} = {9314EB89-0376-4521-A409-92B203AE4CB4}
+		{BFF8614D-0E21-44E8-8729-FD18B68B58D6} = {E3DEACF5-8E28-4E61-9BE5-35F58BB8B6A7}
+		{B295DFFD-2456-4E88-9A04-931699A89C76} = {9314EB89-0376-4521-A409-92B203AE4CB4}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {65AA711D-C0CC-4FE3-A6BC-F198533C4266}
