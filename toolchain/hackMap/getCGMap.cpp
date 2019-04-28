@@ -68,7 +68,7 @@ void CGetCGMap::readAllTile()
 {
 	std::cout << "read fileInfo.json begin..." << std::endl;
 	// 读取文件信息json
-	std::ifstream ifs((_strPath + "\\data\\fileInfo.json"));
+	std::ifstream ifs((_strPath + "\\newData\\fileInfo.json"));
 	if (ifs.good())
 	{
 		ifs >> _tiledFilesJson;
@@ -76,7 +76,7 @@ void CGetCGMap::readAllTile()
 	}
 	else
 	{
-		Utils::saveError(LOG_ERROR, _strErrFile, "read data\\fileInfo.json failed");
+		Utils::saveError(LOG_ERROR, _strErrFile, "read newData\\fileInfo.json failed");
 	}
 	std::cout << "read fileInfo.json end" << std::endl;
 }

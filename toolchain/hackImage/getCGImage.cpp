@@ -119,12 +119,12 @@ void CGetCGImage::readAndSaveImg(const std::string &strName)
 		return;
 
 	// 记录错误日志
-	std::string strErrorFile = _strPath + "\\data\\";
+	std::string strErrorFile = _strPath + "\\newData\\";
 	Utils::makeSureDirExsits(strErrorFile);
 	strErrorFile += "error.log";
 
 	// 生成的文件目录
-	std::string strSavePath = _strPath + "\\data\\" + strName.substr(0, strName.find_last_of(".")) + "\\";
+	std::string strSavePath = _strPath + "\\newData\\" + strName.substr(0, strName.find_last_of(".")) + "\\";
 
 	for (auto &ii : _vecImginfo)
 	{
@@ -242,7 +242,7 @@ std::string CGetCGImage::filleImgPixel(int w, int h)
 void CGetCGImage::saveImgData(const std::string &cgpName, const std::string &strPath, const imgInfoHead &tHead)
 {
 	// 存储_vecImgData
-	// data/name/cgp/*.png
+	// newData/name/cgp/*.png
 
 	FILE *pFile = nullptr;
 
@@ -267,7 +267,7 @@ void CGetCGImage::saveImgData(const std::string &cgpName, const std::string &str
 
 void CGetCGImage::saveFileJson()
 {
-	std::ofstream ofs((_strPath + "\\data\\fileInfo.json").c_str(), std::ios::out | std::ios::trunc);
+	std::ofstream ofs((_strPath + "\\newData\\fileInfo.json").c_str(), std::ios::out | std::ios::trunc);
 	if (ofs.bad())
 		return;
 
